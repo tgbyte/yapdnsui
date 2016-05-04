@@ -39,4 +39,4 @@ RUN \
 WORKDIR /app/yapdnsui
 
 ENTRYPOINT ["/usr/local/bin/dumb-init"]
-CMD ["node", "/app/yapdnsui/bin/www"]
+CMD ["/app/yapdnsui/docker-entrypoint.sh"]
