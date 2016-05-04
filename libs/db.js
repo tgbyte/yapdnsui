@@ -1,5 +1,5 @@
 var fs = require('fs');
-var file = 'yapdnsui.sqlite3';
+var file = '/data/yapdnsui.sqlite3';
 var exists = fs.existsSync(file);
 
 var sqlite3 = require('sqlite3').verbose();

@@ -1,71 +1,33 @@
-# NodeJS + SSHD + myapp
-#
-# Base from ultimate-seed Dockerfile
-# https://github.com/pilwon/ultimate-seed
-#
-# Mainly to run yapdnsui
-# https://github.com/xbgmsharp/yapdnsui
-#
-# DOCKER-VERSION 0.9.1
-# VERSION 0.0.1
+FROM node:0.12-slim
 
-# Pull base image.
-FROM ubuntu:latest
-MAINTAINER Francois Lacroix <xbgmsharp@gmail.com>
+ENV DUMBINIT_VERSION 1.0.1
+ENV GOSU_VERSION 1.7
 
-# Setup system and install tools
-RUN echo "initscripts hold" | dpkg --set-selections
-RUN echo 'alias ll="ls -lah --color=auto"' >> /etc/bash.bashrc
-
-# Set locale
-RUN apt-get -qqy install locales
-RUN locale-gen --purge en_US en_US.UTF-8
-RUN dpkg-reconfigure locales
-ENV LC_ALL en_US.UTF-8
-
-# Set ENV
-ENV HOME /root
 ENV DEBIAN_FRONTEND noninteractive
+#ENV NODE_ENV production
+ENV DEBUG yapdnsui
+ENV PORT 8080
+EXPOSE $PORT
 
-# Update and Upgrade system
-RUN apt-get update && apt-get -y upgrade
+RUN apt-get update && apt-get -y upgrade && \
+    npm install -g bower grunt-cli npm-check-updates express express-generator jade request sqlite3 && \
+    apt-get -y install libsqlite3-0 git wget ca-certificates && \
+    wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v${DUMBINIT_VERSION}/dumb-init_${DUMBINIT_VERSION}_amd64 && \
+    chmod +x /usr/local/bin/dumb-init && \
+    wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)" && \
+    wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc" && \
+    export GNUPGHOME="$(mktemp -d)" && \
+    gpg --keyserver ha.pool.sks-keyservers.net --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4 && \
+    gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu && \
+    rm -r "$GNUPGHOME" /usr/local/bin/gosu.asc && \
+    chmod +x /usr/local/bin/gosu && \
+    gosu nobody true && \
+    apt-get purge -y --auto-remove ca-certificates wget && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    adduser --uid 500 --disabled-login --gecos "yapdnsui" --no-create-home --home /app/yapdnsui yapdnsui
 
-# Install deb dependencies for nodesource.com
-RUN apt-get -y install curl
-
-# Note the new setup script name for Node.js v0.12
-RUN curl -sL https://deb.nodesource.com/setup_0.12 | bash -
-
-# Install nodejs 
-RUN apt-get -y install nodejs
-
-# Install nodejs dependencies
-RUN npm install -g bower grunt-cli npm-check-updates
-# Install my application dependencies
-RUN npm install -g express express-generator jade request sqlite3
-
-# Install my dependencies
-RUN apt-get -y install nano curl wget vim libsqlite3-0
-# Install Git
-RUN apt-get -y install git-core
-
-# Install SSH
-RUN apt-get install -y openssh-server
-RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
-RUN sed -ri 's/#UsePAM no/UsePAM no/g' /etc/ssh/sshd_config
-RUN sed 's/#PermitRootLogin yes/PermitRootLogin yes/' -i /etc/ssh/sshd_config
-RUN sed 's/PermitRootLogin without-password/PermitRootLogin yes/' -i /etc/ssh/sshd_config
-RUN mkdir /var/run/sshd
-RUN echo 'root:admin' | chpasswd
-
-# Add app directory
-RUN mkdir /app
-ADD startup.sh /app/startup.sh
-#ADD . /app
-
-# Install `yapdnsui` from git
-RUN cd /app && \
-  git clone https://github.com/xbgmsharp/yapdnsui
+VOLUME ["/data"]
+ADD . /app/yapdnsui
 
 RUN \
   cd /app/yapdnsui && \
@@ -74,24 +36,7 @@ RUN \
   npm rebuild && \
   bower --allow-root install
 
-# Define environment variables
-#ENV NODE_ENV production
-ENV DEBUG yapdnsui
-ENV PORT 8080
-
-# Define working directory.
 WORKDIR /app/yapdnsui
 
-# Define default command.
-# Start ssh and other services.
-CMD ["/bin/bash", "/app/startup.sh"]
-
-# Expose ports.
-EXPOSE 22 8080
-
-# Clean up APT when done.
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Make sure the package repository is up to date
-ONBUILD apt-get update && apt-get -y upgrade
-ONBUILD apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+ENTRYPOINT ["/usr/local/bin/dumb-init"]
+CMD ["node", "/app/yapdnsui/bin/www"]
