@@ -92,7 +92,7 @@ router.post('/servers/:id/records/save/:zone_id', function(req, res) {
 					'priority': 0, 'content': req.body['content'],
 					'ttl': req.body['ttl'], 'disabled': false };
 			console.log(record);
-                        pdnsapi.records.update(req, res, record, function (error, response, body) {
+                        pdnsapi.records.add(req, res, record, function (error, response, body) {
 				// If any http error redirect to index
                                 if (error && response.statusCode != 200) { console.log(error); res.redirect('/'); }
                                 else {
